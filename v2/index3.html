@@ -112,12 +112,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const copyBtn   = document.getElementById('copyBtn');
   const clearBtn  = document.getElementById('clearBtn');
 
-  // Basic HTML escape (and newline -> <br>) for safe rendering
+  // --------- NEW: IDs ----------
+  const getOrCreateDeviceId = () => {
+    let id = localStorage.getItem('deviceId');
+    if (!id) {
+      id = crypto.randomUUID();
+      localStorage.setItem('deviceId', id);
+    }
+    return id;
+  };
+  const newCorrelationId = () => crypto.randomUUID();
+
+  // Basic HTML escape
   const escapeHTML = (str='') =>
-    String(str)
-      .replace(/&/g,'&amp;')
-      .replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;');
+    String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
   const formatMaybeLink = (label, url) => {
     if (!url) return '-';
@@ -128,103 +136,61 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch { return escapeHTML(url); }
   };
 
-function renderResponse(d) {
-    // Top profile card
+  function renderResponse(d) {
     const top = `
-        <div class="section">
-            <div class="row">
-                <div class="field">
-                    <div class="label"><strong>Full Name</strong></div>
-                    <div class="value">${escapeHTML(d.fullName || '-')}</div>
-                </div>
-                <div class="field">
-                    <div class="label"><strong>Headline</strong></div>
-                    <div class="value">${escapeHTML(d.headline || '-')}</div>
-                </div>
-                <div class="field">
-                    <div class="label"><strong>Company / Job Title</strong></div>
-                    <div class="value">${escapeHTML([d.companyName, d.jobTitle].filter(Boolean).join(' — ') || '-')}</div>
-                </div>
-                <div class="field">
-                    <div class="label"><strong>Connections / Followers</strong></div>
-                    <div class="value">${escapeHTML(String(d.connections || '-'))} / ${escapeHTML(String(d.followers || '-'))}</div>
-                </div>
-                <div class="field">
-                    <div class="label"><strong>LinkedIn</strong></div>
-                    <div class="value">${formatMaybeLink('LinkedIn', d.linkedinUrl)}</div>
-                </div>
-            </div>
+      <div class="section">
+        <div class="row">
+          <div class="field"><div class="label"><strong>Full Name</strong></div><div class="value">${escapeHTML(d.fullName || '-')}</div></div>
+          <div class="field"><div class="label"><strong>Headline</strong></div><div class="value">${escapeHTML(d.headline || '-')}</div></div>
+          <div class="field"><div class="label"><strong>Company / Job Title</strong></div><div class="value">${escapeHTML([d.companyName, d.jobTitle].filter(Boolean).join(' — ') || '-')}</div></div>
+          <div class="field"><div class="label"><strong>Connections / Followers</strong></div><div class="value">${escapeHTML(String(d.connections || '-'))} / ${escapeHTML(String(d.followers || '-'))}</div></div>
+          <div class="field"><div class="label"><strong>LinkedIn</strong></div><div class="value">${formatMaybeLink('LinkedIn', d.linkedinUrl)}</div></div>
         </div>
+      </div>
     `;
 
-    // Activity + summaries
     const summaries = `
-        <div class="section">
-            <h4>Highlights</h4>
-            <div class="row">
-                <div class="field">
-                    <div class="label"><strong>Last Activity</strong></div>
-                    <div class="value">${escapeHTML(d["Last Activity"] || '-')}</div>
-                </div>
-                <div class="field" style="flex:1 1 100%">
-                    <div class="label"><strong>Leads Summary</strong></div>
-                    <div class="value">${escapeHTML(d["Leads Summary"] || '-')}</div>
-                </div>
-                <div class="field" style="flex:1 1 100%">
-                    <div class="label"><strong>Company Summary</strong></div>
-                    <div class="value">${escapeHTML(d["Company Summary"] || '-')}</div>
-                </div>
-            </div>
+      <div class="section">
+        <h4>Highlights</h4>
+        <div class="row">
+          <div class="field"><div class="label"><strong>Last Activity</strong></div><div class="value">${escapeHTML(d["Last Activity"] || '-')}</div></div>
+          <div class="field" style="flex:1 1 100%"><div class="label"><strong>Leads Summary</strong></div><div class="value">${escapeHTML(d["Leads Summary"] || '-')}</div></div>
+          <div class="field" style="flex:1 1 100%"><div class="label"><strong>Company Summary</strong></div><div class="value">${escapeHTML(d["Company Summary"] || '-')}</div></div>
         </div>
+      </div>
     `;
 
-    // Contact/company details
     const contact = `
-        <div class="section">
-            <h4>Contact & Company</h4>
-            <div class="row">
-                <div class="field"><div class="label"><strong>Email</strong></div><div class="value">${escapeHTML(d.email || '-')}</div></div>
-                <div class="field"><div class="label"><strong>Mobile</strong></div><div class="value">${escapeHTML(d.mobileNumber || '-')}</div></div>
-                <div class="field"><div class="label"><strong>Industry</strong></div><div class="value">${escapeHTML(d.companyIndustry || '-')}</div></div>
-                <div class="field"><div class="label"><strong>Company Website</strong></div><div class="value">${formatMaybeLink('Website', d.companyWebsite)}</div></div>
-                <div class="field"><div class="label"><strong>Company LinkedIn</strong></div><div class="value">${formatMaybeLink('LinkedIn', d.companyLinkedin)}</div></div>
-                <div class="field"><div class="label"><strong>Founded</strong></div><div class="value">${escapeHTML(d.companyFoundedIn || '-')}</div></div>
-                <div class="field"><div class="label"><strong>Company Size</strong></div><div class="value">${escapeHTML(d.companySize || '-')}</div></div>
-                <div class="field"><div class="label"><strong>Current Job Duration</strong></div><div class="value">${escapeHTML(d.currentJobDuration || '-')}</div></div>
-                <div class="field" style="flex:1 1 100%">
-                    <div class="label"><strong>Address</strong></div><div class="value">${escapeHTML(d.addressWithoutCountry || '-')}</div>
-                </div>
-            </div>
+      <div class="section">
+        <h4>Contact & Company</h4>
+        <div class="row">
+          <div class="field"><div class="label"><strong>Email</strong></div><div class="value">${escapeHTML(d.email || '-')}</div></div>
+          <div class="field"><div class="label"><strong>Mobile</strong></div><div class="value">${escapeHTML(d.mobileNumber || '-')}</div></div>
+          <div class="field"><div class="label"><strong>Industry</strong></div><div class="value">${escapeHTML(d.companyIndustry || '-')}</div></div>
+          <div class="field"><div class="label"><strong>Company Website</strong></div><div class="value">${formatMaybeLink('Website', d.companyWebsite)}</div></div>
+          <div class="field"><div class="label"><strong>Company LinkedIn</strong></div><div class="value">${formatMaybeLink('LinkedIn', d.companyLinkedin)}</div></div>
+          <div class="field"><div class="label"><strong>Founded</strong></div><div class="value">${escapeHTML(d.companyFoundedIn || '-')}</div></div>
+          <div class="field"><div class="label"><strong>Company Size</strong></div><div class="value">${escapeHTML(d.companySize || '-')}</div></div>
+          <div class="field"><div class="label"><strong>Current Job Duration</strong></div><div class="value">${escapeHTML(d.currentJobDuration || '-')}</div></div>
+          <div class="field" style="flex:1 1 100%"><div class="label"><strong>Address</strong></div><div class="value">${escapeHTML(d.addressWithoutCountry || '-')}</div></div>
         </div>
+      </div>
     `;
 
-    // Skills / about / experience / education
     const details = `
-        <div class="section">
-            <h4>Details</h4>
-            <div class="row">
-                <div class="field" style="flex:1 1 100%">
-                    <div class="label"><strong>Top Skills</strong></div>
-                    <div class="value">${escapeHTML(d.topSkillsByEndorsements || '-')}</div>
-                </div>
-                <div class="field" style="flex:1 1 100%">
-                    <div class="label"><strong>About</strong></div>
-                    <div class="value">${escapeHTML(d.about || '-')}</div>
-                </div>
-                <div class="field" style="flex:1 1 100%">
-                    <div class="label"><strong>Experience</strong></div>
-                    <div class="value">${escapeHTML(d.experience || '-')}</div>
-                </div>
-                <div class="field" style="flex:1 1 100%">
-                    <div class="label"><strong>Education</strong></div>
-                    <div class="value">${escapeHTML(d.education || '-')}</div>
-                </div>
-            </div>
+      <div class="section">
+        <h4>Details</h4>
+        <div class="row">
+          <div class="field" style="flex:1 1 100%"><div class="label"><strong>Top Skills</strong></div><div class="value">${escapeHTML(d.topSkillsByEndorsements || '-')}</div></div>
+          <div class="field" style="flex:1 1 100%"><div class="label"><strong>About</strong></div><div class="value">${escapeHTML(d.about || '-')}</div></div>
+          <div class="field" style="flex:1 1 100%"><div class="label"><strong>Experience</strong></div><div class="value">${escapeHTML(d.experience || '-')}</div></div>
+          <div class="field" style="flex:1 1 100%"><div class="label"><strong>Education</strong></div><div class="value">${escapeHTML(d.education || '-')}</div></div>
         </div>
+      </div>
     `;
 
     rendered.innerHTML = top + summaries + contact + details;
-}
+  }
 
   // Submit -> call webhook -> render
   form.addEventListener('submit', async (e) => {
@@ -234,49 +200,52 @@ function renderResponse(d) {
     const company  = document.getElementById('company').value.trim();
     const linkedin = document.getElementById('linkedin').value.trim() || null;
 
-    // UI switch
+    const deviceId = getOrCreateDeviceId();
+    const correlationId = newCorrelationId();
+
     form.style.display = 'none';
     loading.style.display = 'block';
 
     try {
-      const webhookURL = 'https://noemi-multilaciniate-malia.ngrok-free.app/webhook-test/e7faa353-5751-4eb3-a9b4-6cc0dfe95705'; // <-- replace if needed
+      const webhookURL = 'https://noemi-multilaciniate-malia.ngrok-free.app/webhook-test/e7faa353-5751-4eb3-a9b4-6cc0dfe95705';
 
       const res = await fetch(webhookURL, {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ name, company, linkedin })
+        body: JSON.stringify({ deviceId, correlationId, name, company, linkedin })
       });
 
       if (!res.ok) throw new Error(`Webhook error: ${res.status}`);
-
       const data = await res.json();
 
-      // Render pretty UI
-      renderResponse(data);
+      // ---------- CRITICAL: verify echo ----------
+      if (data.correlationId && data.correlationId !== correlationId) {
+        throw new Error(`Mismatched correlationId (expected ${correlationId}, got ${data.correlationId}).`);
+      }
+      if (data.deviceId && data.deviceId !== deviceId) {
+        throw new Error(`Mismatched deviceId (expected ${deviceId}, got ${data.deviceId}).`);
+      }
 
-      // Keep raw JSON available for copy/download
+      renderResponse(data);
       rawJsonEl.value = JSON.stringify(data, null, 2);
+
     } catch (err) {
       rendered.innerHTML = `<div class="error"><strong>Error:</strong> ${escapeHTML(err.message)}</div>`;
-      rawJsonEl.value = `{"error":"${err.message}"}`;
+      rawJsonEl.value = `{"error":"${err.message}"}`
     } finally {
       loading.style.display = 'none';
       result.style.display  = 'block';
     }
   });
 
-  // Copy JSON
   copyBtn.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(rawJsonEl.value);
       copyBtn.textContent = 'Copied!';
       setTimeout(() => copyBtn.textContent = 'Copy JSON', 1500);
-    } catch {
-      alert('Copy failed. Please select the text manually.');
-    }
+    } catch { alert('Copy failed. Please select the text manually.'); }
   });
 
-  // Clear / new entry
   clearBtn.addEventListener('click', () => {
     form.reset();
     rendered.innerHTML = '';
@@ -286,5 +255,6 @@ function renderResponse(d) {
   });
 });
 </script>
+
 </body>
 </html>

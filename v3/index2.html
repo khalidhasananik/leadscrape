@@ -229,32 +229,29 @@ function renderResponse(d) {
   // Submit -> call webhook -> render
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-
     const name     = document.getElementById('name').value.trim();
     const company  = document.getElementById('company').value.trim();
     const linkedin = document.getElementById('linkedin').value.trim() || null;
+    const requestId = crypto.randomUUID();  // new
 
-    // UI switch
     form.style.display = 'none';
     loading.style.display = 'block';
 
     try {
-      const webhookURL = 'https://noemi-multilaciniate-malia.ngrok-free.app/webhook-test/e7faa353-5751-4eb3-a9b4-6cc0dfe95705'; // <-- replace if needed
-
+      const webhookURL = 'https://noemi-multilaciniate-malia.ngrok-free.app/webhook/lead-scrape'; // prod URL
       const res = await fetch(webhookURL, {
         method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ name, company, linkedin })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, company, linkedin, requestId }) // include requestId
       });
-
       if (!res.ok) throw new Error(`Webhook error: ${res.status}`);
-
       const data = await res.json();
 
-      // Render pretty UI
-      renderResponse(data);
+      if (data.requestId && data.requestId !== requestId) {
+        throw new Error('Response correlation mismatch (requestId).');
+      }
 
-      // Keep raw JSON available for copy/download
+      renderResponse(data);
       rawJsonEl.value = JSON.stringify(data, null, 2);
     } catch (err) {
       rendered.innerHTML = `<div class="error"><strong>Error:</strong> ${escapeHTML(err.message)}</div>`;
@@ -265,7 +262,7 @@ function renderResponse(d) {
     }
   });
 
-  // Copy JSON
+    // Copy JSON
   copyBtn.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(rawJsonEl.value);

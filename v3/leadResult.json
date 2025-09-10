@@ -1,0 +1,161 @@
+{
+  "name": "Lead Result (poll)",
+  "nodes": [
+    {
+      "id": "wh-result",
+      "name": "Webhook: /lead/result",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [-560, 0],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "lead/result",
+        "responseMode": "responseNode",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Cache-Control", "value": "no-store" },
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          },
+          "cors": {
+            "credentials": false,
+            "enabled": true,
+            "methods": "GET,OPTIONS",
+            "origins": ["*"]
+          }
+        }
+      }
+    },
+    {
+      "id": "guard",
+      "name": "Guard: require requestId",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [-320, 0],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{$json.query.requestId}}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "isEmpty" }
+            }
+          ],
+          "combinator": "or"
+        }
+      }
+    },
+    {
+      "id": "badreq",
+      "name": "Respond 400 (missing id)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [-80, -120],
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 400,
+        "responseBody": "={{ { error: 'requestId required' } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Cache-Control", "value": "no-store" },
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "fetch",
+      "name": "Data Store: Get by requestId",
+      "type": "n8n-nodes-base.dataStore",
+      "typeVersion": 1,
+      "position": [-80, 120],
+      "parameters": {
+        "operation": "get",
+        "key": "={{$json.query.requestId}}"
+      }
+    },
+    {
+      "id": "found?",
+      "name": "Found?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [160, 120],
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{$json.value}}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "isEmpty" }
+            }
+          ],
+          "combinator": "or"
+        }
+      }
+    },
+    {
+      "id": "pending",
+      "name": "Respond 404 (pending)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [400, 0],
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 404,
+        "responseBody": "={{ { requestId: $json.query.requestId, status: 'pending' } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Cache-Control", "value": "no-store" },
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "ok",
+      "name": "Respond 200 (complete)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [400, 220],
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 200,
+        "responseBody": "={{ { requestId: $json.query.requestId, status: 'complete', data: $json.value } }}",
+        "options": {
+          "responseHeaders": {
+            "entries": [
+              { "name": "Cache-Control", "value": "no-store" },
+              { "name": "Access-Control-Allow-Origin", "value": "*" }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook: /lead/result": { "main": [[{ "node": "Guard: require requestId", "type": "main", "index": 0 }]] },
+    "Guard: require requestId": {
+      "main": [
+        [{ "node": "Data Store: Get by requestId", "type": "main", "index": 0 }],
+        [{ "node": "Respond 400 (missing id)", "type": "main", "index": 0 }]
+      ]
+    },
+    "Data Store: Get by requestId": { "main": [[{ "node": "Found?", "type": "main", "index": 0 }]] },
+    "Found?": {
+      "main": [
+        [{ "node": "Respond 404 (pending)", "type": "main", "index": 0 }],
+        [{ "node": "Respond 200 (complete)", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveExecutionProgress": false
+  },
+  "active": true
+}
